@@ -1,13 +1,14 @@
 import requests
 import time
 from multiprocessing import cpu_count
-from multiprocessing.pool import ThreadPool
-from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures
 import os
 import zipfile
 from io import BytesIO
 from zipfile import ZipFile
-import logging
+import logging 
+
+# Defining Logger
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,30 +23,29 @@ download_uris = [
     "https://divvy-tripdata.s3.amazonaws.com/Divvy_Trips_2220_Q1.zip",
 ]
 
-def main():
+# Extraction loop
 
-    directory = "downloads"
-
-    if not os.path.exists(directory):
-        os.mkdir(directory)
-        logger.info(f"Folder '{directory}' has been created!")
-    else:
-        logger.info(f"Folder '{directory}' already exists.")
-
-    for uri in download_uris:
+def download_and_extract(uri,directory):
       try:
         file_name = os.path.join(directory, os.path.basename(uri))
         response = requests.get(uri, stream=True)
         if response.status_code == 200:
           logger.info(f"{uri} is OK, saving to /{directory} directory.")
+
+        # Writing .zip into /downloads
+
           with open(file_name, 'wb') as file:
               for chunk in response.iter_content(chunk_size=8192):
                 file.write(chunk)
+
+        # Extracting .csv from .zip
 
           with zipfile.ZipFile(file_name, 'r') as zip_ref:
               zip_ref.extractall(directory)
 
           logger.info(f"CSV files extracted from {file_name}.")
+
+        # Removing .zip from /downloads
 
           os.remove(file_name)
 
@@ -56,3 +56,25 @@ def main():
         
       except Exception as err:
         print(err)
+
+
+def main():
+
+    directory = "downloads"
+
+    # Checking if directory already exists
+
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+        logger.info(f"Folder '{directory}' has been created!")
+    else:
+        logger.info(f"Folder '{directory}' already exists.")
+
+    # Setting up ThreadPool Executor
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count()) as executor:
+        futures = [executor.submit(download_and_extract, uri, directory) for uri in download_uris]
+        concurrent.futures.wait(futures)
+      
+if __name__ == "__main__":
+    main()
