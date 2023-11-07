@@ -2,6 +2,7 @@ import requests
 import time
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
+from concurrent.futures import ThreadPoolExecutor
 import os
 import zipfile
 from io import BytesIO
@@ -35,19 +36,14 @@ def main():
         with open(file_name, 'wb') as file:
             for chunk in response.iter_content(chunk_size=8192):
               file.write(chunk)
+
+        with zipfile.ZipFile(file_name, 'r') as zip_ref:
+            zip_ref.extractall(directory)
+
+        print(f"CSV files extracted from {file_name}.")
+
+        os.remove(file_name)
+        print(f"{file_name} deleted.")
+        
       else:
         print(f"{uri} is broken, can't be unzipped.")
-
-    zip_files = [file for file in os.listdir(directory) if file.endswith('.zip')]
-
-    for zip_file in zip_files:
-        zip_file_path = os.path.join(directory, zip_file)
-        
-        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-            zip_ref.extractall(directory)
-            
-        print(f"CSV files extracted from {zip_file}.")
-
-        os.remove(zip_file_path)
-
-        print(f"{zip_file} deleted.")      
